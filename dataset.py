@@ -39,9 +39,9 @@ class Dataset:
     @staticmethod
     def _get_poses(poses_path):
         raw_poses = np.loadtxt(poses_path).reshape(-1, 3, 4)
-        homogenous_poses = np.tile(np.eye(4), (raw_poses.shape[0], 1, 1))
-        homogenous_poses[:, :3, :] = raw_poses
-        return homogenous_poses
+        homogeneous_poses = np.tile(np.eye(4), (raw_poses.shape[0], 1, 1))
+        homogeneous_poses[:, :3, :] = raw_poses
+        return homogeneous_poses
 
     def get_frame(self, index):
         """
