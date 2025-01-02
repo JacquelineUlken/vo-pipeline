@@ -4,10 +4,13 @@ import cv2
 
 
 class Dataset:
-    def __init__(self, images_path, camera_matrix_path, poses_path):
+    def __init__(self, images_path, camera_matrix_path, poses_path=None):
         self.image_paths = self._get_image_paths(images_path)
         self.camera_matrix = self._get_camera_matrix(camera_matrix_path)
-        self.poses = self._get_poses(poses_path)
+        if poses_path:
+            self.ground_truth_poses = self._get_poses(poses_path)
+        else:
+            self.ground_truth_poses = None
 
     @staticmethod
     def _get_image_paths(images_path):
@@ -26,6 +29,4 @@ class Dataset:
         return homogenous_poses
 
     def get_frame(self, index):
-        image = cv2.imread(self.image_paths[index], cv2.IMREAD_GRAYSCALE)
-        pose = self.poses[index]
-        return image, pose
+        return cv2.imread(self.image_paths[index], cv2.IMREAD_GRAYSCALE)
