@@ -18,15 +18,24 @@ class Dataset:
 
     @staticmethod
     def _get_camera_matrix(camera_matrix_path):
-        return np.genfromtxt(camera_matrix_path)[0, 1:].reshape((3, 4))[:, :3]
+        camera_matrix = np.genfromtxt(camera_matrix_path)[0, 1:].reshape((3, 4))[:, :3]
+        assert camera_matrix.shape == (3, 3), "Invalid camera matrix shape"
+        return camera_matrix
 
     @staticmethod
     def _get_poses(poses_path):
         raw_poses = np.loadtxt(poses_path).reshape(-1, 3, 4)
-        homogenous_poses = np.zeros((raw_poses.shape[0], 4, 4))
+        homogenous_poses = np.tile(np.eye(4), (raw_poses.shape[0], 1, 1))
         homogenous_poses[:, :3, :] = raw_poses
-        homogenous_poses[:, 3, 3] = 1
         return homogenous_poses
 
     def get_frame(self, index):
+        if index < 0 or index >= len(self.image_paths):
+            raise IndexError(f"Frame index {index} out of bounds.")
         return cv2.imread(self.image_paths[index], cv2.IMREAD_GRAYSCALE)
+
+    def get_pose(self, index):
+        if self.ground_truth_poses is not None:
+            return self.ground_truth_poses[index]
+        else:
+            raise ValueError("Ground truth poses are not available for this dataset.")
