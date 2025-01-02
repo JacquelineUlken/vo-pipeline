@@ -4,13 +4,27 @@ import cv2
 
 
 class Dataset:
+    """
+    Handles loading images, camera intrinsics, and ground truth poses (if available) from a dataset (e.g., KITTI).
+
+    Attributes:
+        camera_matrix (np.array): Camera intrinsic matrix (3x3).
+
+    Methods:
+        get_frame(index):
+            Loads and returns the grayscale image at the specified index.
+
+        get_ground_truth_pose(index):
+            Retrieves the ground truth pose at the specified index.
+    """
+
     def __init__(self, images_path, camera_matrix_path, poses_path=None):
-        self.image_paths = self._get_image_paths(images_path)
+        self._image_paths = self._get_image_paths(images_path)
         self.camera_matrix = self._get_camera_matrix(camera_matrix_path)
         if poses_path:
-            self.ground_truth_poses = self._get_poses(poses_path)
+            self._ground_truth_poses = self._get_poses(poses_path)
         else:
-            self.ground_truth_poses = None
+            self._ground_truth_poses = None
 
     @staticmethod
     def _get_image_paths(images_path):
@@ -30,12 +44,20 @@ class Dataset:
         return homogenous_poses
 
     def get_frame(self, index):
-        if index < 0 or index >= len(self.image_paths):
-            raise IndexError(f"Frame index {index} out of bounds.")
-        return cv2.imread(self.image_paths[index], cv2.IMREAD_GRAYSCALE)
+        """
+        Loads a grayscale image at the specified index.
+        """
 
-    def get_pose(self, index):
-        if self.ground_truth_poses is not None:
-            return self.ground_truth_poses[index]
+        if index < 0 or index >= len(self._image_paths):
+            raise IndexError(f"Frame index {index} out of bounds.")
+        return cv2.imread(self._image_paths[index], cv2.IMREAD_GRAYSCALE)
+
+    def get_ground_truth_pose(self, index):
+        """
+        Retrieves the ground truth pose at the specified index.
+        """
+
+        if self._ground_truth_poses is not None:
+            return self._ground_truth_poses[index]
         else:
             raise ValueError("Ground truth poses are not available for this dataset.")
