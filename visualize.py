@@ -1,16 +1,20 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def VisualizeKeypoints(img, keypoints_1, keypoints_2):
+def VisualizeKeypoints(img, keypoints_1, keypoints_2, fig, axs, camera_pose):
     """
-    Visualize the keypoints
+    Visualize the keypoints and camera poses
     """
+    axs[0].cla()
+    axs[1].cla()
 
-    plt.clf()
-    plt.imshow(img, cmap='gray')
+    axs[1].set_xlim([0, 20])
+    axs[1].set_ylim([0, 20])
+
+    axs[0].imshow(img, cmap='gray')
     keypoints_1 = keypoints_1.reshape(-1, 2)
 
-    plt.plot(keypoints_1[:, 0], keypoints_1[:, 1], 'rx', linewidth = 2, label = 'keypoints_1')
+    axs[0].plot(keypoints_1[:, 0], keypoints_1[:, 1], 'rx', linewidth = 2, label = 'keypoints_1')
 
     keypoints_2 = keypoints_2.reshape(-1, 2)
 
@@ -21,11 +25,20 @@ def VisualizeKeypoints(img, keypoints_1, keypoints_2):
 
     keypoints_2_filter = np.array(keypoints_2_filter)
 
-    plt.plot(keypoints_2_filter[:, 0], keypoints_2_filter[:, 1], 'o', color='green', markerfacecolor='none', linewidth=2, label = 'keypoints_2') 
+    axs[0].plot(keypoints_2_filter[:, 0], keypoints_2_filter[:, 1], 'o', color='green', markerfacecolor='none', linewidth=2, label = 'keypoints_2') 
 
-    plt.legend(loc='upper right')
+    axs[0].legend(loc='upper right')
 
-    plt.pause(1.0)
-    plt.show()
+    axs[1].plot(camera_pose[0], camera_pose[1], 'bo', linewidth = 2, label = 'camera_poses')
+    axs[1].legend(loc='upper right')
+
+    axs[1].set_xlabel('x')
+    axs[1].set_ylabel('y')
+    axs[1].set_title("Camera Poses")
+
+    plt.tight_layout()
+
+    plt.pause(5.0)
+    # plt.show()
 
     return
