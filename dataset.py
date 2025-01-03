@@ -61,3 +61,6 @@ class Dataset:
             return self._ground_truth_poses[index]
         else:
             raise ValueError("Ground truth poses are not available for this dataset.")
+
+    def __len__(self):
+        return len(self._image_paths)
