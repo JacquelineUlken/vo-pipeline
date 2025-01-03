@@ -9,4 +9,4 @@ if __name__ == "__main__":
     dataset = Dataset(images_path, camera_matrix_path, poses_path)
     pipeline = Pipeline(dataset)
 
-    initial_landmarks, initial_pose, next_pose = pipeline.initialize(1, 3)
+    pipeline.initialize(0, 2)
