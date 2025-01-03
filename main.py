@@ -9,4 +9,5 @@ if __name__ == "__main__":
     dataset = Dataset(images_path, camera_matrix_path, poses_path)
     pipeline = Pipeline(dataset)
 
-    pipeline.initialize(0, 2)
+    poses = pipeline.run()
+    print(f"Finished VO Pipeline, got {len(poses)} poses, each in the form of a {poses.shape[1]} x {poses.shape[2]} matrix.")
