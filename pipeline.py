@@ -40,7 +40,7 @@ class Pipeline:
         landmarks = homogeneous_landmarks[:3] / homogeneous_landmarks[3]
 
         # Update state with initial keypoints, landmarks, and pose
-        self.state['keypoints'] = keypoints_2
+        self.state['keypoints'] = keypoints_1
         self.state['landmarks'] = landmarks.T
         self.state['pose'] = np.eye(4)
         self.state['pose'][:3, :3] = R
