@@ -25,6 +25,8 @@ if __name__ == "__main__":
     # print(camera_pose[0])
 
     camera_trans = np.empty((0, 3)) # Nx3
+    camera_rot = np.empty((0, 3, 3))
+    yaw_arr = np.empty((0, 1))
     with open(poses_path, "r") as file:
         for line in file:
             row = [float(value) for value in line.split()]
@@ -32,6 +34,17 @@ if __name__ == "__main__":
             trans_vector = np.array([row[3], row[7], row[11]])
             # print(trans_vector)
             camera_trans = np.vstack((camera_trans, trans_vector))
+
+            rot_mat = np.array([[row[0], row[1], row[2]], [row[4], row[5], row[6]], [row[8], row[9], row[10]]])
+            # print(rot_mat)
+            yaw = np.arctan2(rot_mat[1, 0], rot_mat[0, 0]) # [-pi, pi], considering negligible roll and pitch
+            if yaw < 0:
+                yaw += 2 * np.pi
+
+            yaw_deg = yaw * 180 / np.pi
+            yaw_arr = np.vstack((yaw_arr, yaw_deg))
+
+    # print(yaw_arr)
 
     # print(camera_trans[2760, :])
 
