@@ -8,8 +8,8 @@ def VisualizeKeypoints(img, keypoints_1, keypoints_2, fig, axs, camera_pose):
     axs[0].cla()
     axs[1].cla()
 
-    axs[1].set_xlim([0, 20])
-    axs[1].set_ylim([0, 20])
+    axs[1].set_xlim([-200, 200])
+    axs[1].set_ylim([-100, 100])
 
     axs[0].imshow(img, cmap='gray')
     keypoints_1 = keypoints_1.reshape(-1, 2)
@@ -29,6 +29,8 @@ def VisualizeKeypoints(img, keypoints_1, keypoints_2, fig, axs, camera_pose):
 
     axs[0].legend(loc='upper right')
 
+    # print(camera_pose[0])
+    # print(camera_pose[1])
     axs[1].plot(camera_pose[0], camera_pose[1], 'bo', linewidth = 2, label = 'camera_poses')
     axs[1].legend(loc='upper right')
 
