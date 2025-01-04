@@ -6,7 +6,7 @@ class State:
         self.landmarks = landmarks  # numpy array of shape (N, 3)
         self.candidate_keypoints = candidate_keypoints  # numpy array of shape (M, 2)
         self.first_observations = first_observations  # numpy array of shape (M, 2)
-        self.first_observation_poses = first_observation_poses  # numpy array of shape (M, 3, 4)
+        self.first_observation_poses = first_observation_poses  # numpy array of shape (M, 4, 4)
 
     @classmethod
     def empty(cls):
@@ -14,7 +14,7 @@ class State:
                    np.array([], dtype=np.float32).reshape(0, 3),
                    np.array([], dtype=np.float32).reshape(0, 2),
                    np.array([], dtype=np.float32).reshape(0, 2),
-                   np.array([], dtype=np.float32).reshape(0, 3, 4))
+                   np.array([], dtype=np.float32).reshape(0, 4, 4))
 
     def filter_keypoints(self, filter_matrix):
         self.keypoints = np.expand_dims(self.keypoints, axis=1)[filter_matrix == 1]

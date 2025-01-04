@@ -17,8 +17,9 @@ class Pipeline:
 
     def run(self):
         number_of_frames = len(self.dataset)
-        self.initialize()
         poses = []
+        current_pose = self.initialize()
+        poses.append(current_pose)
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
             if len(self.state.landmarks) < self.config.min_landmarks:
                 self.check_new_landmarks = True
@@ -47,7 +48,7 @@ class Pipeline:
         keypoints_2 = keypoints_2[untracked_filter == 1]  # shape: (K, 2)
 
         # Get poses for frame 1 and frame 2
-        pose_1 = np.eye(3, 4)  # First pose is just the (3, 4) identity matrix
+        pose_1 = np.eye(4)  # First pose is just the (4, 4) identity matrix
         pose_2, outlier_filter = self.get_pose_and_outliers(keypoints_1, keypoints_2)
 
         # Remove outliers
@@ -60,6 +61,8 @@ class Pipeline:
         # Update state with initial keypoints and landmarks
         self.state.keypoints = keypoints_1  # shape: (K, 2)
         self.state.landmarks = landmarks  # shape: (K, 3)
+
+        return pose_1
 
     def process_frame(self, i):
         """
@@ -173,7 +176,9 @@ class Pipeline:
                                                                 prob=self.config.ransac_prob,
                                                                 threshold=self.config.error_threshold)
         _, rotation_matrix, translation_vector, _ = cv2.recoverPose(essential_matrix, current_keypoints, previous_keypoints, cameraMatrix=self.camera_matrix)
-        pose = np.hstack((rotation_matrix, translation_vector))
+        pose = np.eye(4)
+        pose[:3, :3] = rotation_matrix
+        pose[:3, 3] = translation_vector.ravel()
 
         return pose, outlier_filter
 
@@ -181,8 +186,8 @@ class Pipeline:
         """
         Triangulate a point cloud of 3D landmarks
         """
-        projection_matrix_1 = self.camera_matrix @ pose_1
-        projection_matrix_2 = self.camera_matrix @ pose_2
+        projection_matrix_1 = self.camera_matrix @ pose_1[:3, :]
+        projection_matrix_2 = self.camera_matrix @ pose_2[:3, :]
 
         landmarks_hom = cv2.triangulatePoints(projection_matrix_1, projection_matrix_2, keypoints_1.T, keypoints_2.T)
         landmarks = landmarks_hom[:3] / landmarks_hom[3]
