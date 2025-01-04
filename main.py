@@ -11,8 +11,9 @@ if __name__ == "__main__":
     images_path_kitti = "data/kitti/05/image_0/"
     images_path_parking = "data/parking/images/img_"
     # camera_matrix_path = "data/kitti/05/calib.txt"
-    poses_path = "data/kitti/poses/05.txt"
-    # dataset = Dataset(images_path, camera_matrix_path, poses_path)
+    poses_path_kitti = "data/kitti/poses/05.txt"
+    poses_path_parking = "data/parking/poses.txt"
+    # dataset = Dataset(images_path, camera_matrix_path, poses_path_kitti)
     # pipeline = Pipeline(dataset)
 
     # pipeline.initialize(0, 2)
@@ -27,7 +28,8 @@ if __name__ == "__main__":
     camera_trans = np.empty((0, 3)) # Nx3
     camera_rot = np.empty((0, 3, 3))
     yaw_arr = np.empty((0, 1))
-    with open(poses_path, "r") as file:
+    # with open(poses_path_kitti, "r") as file:
+    with open(poses_path_parking, "r") as file:
         for line in file:
             row = [float(value) for value in line.split()]
             # print(row[0])
@@ -44,7 +46,7 @@ if __name__ == "__main__":
             yaw_deg = yaw * 180 / np.pi
             yaw_arr = np.vstack((yaw_arr, yaw_deg))
 
-    # print(yaw_arr)
+    print(yaw_arr)
 
     # print(camera_trans[2760, :])
 
