@@ -30,7 +30,7 @@ class Pipeline:
             current_pose = self.process_frame(i)
             poses.append(current_pose)
 
-            VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose)
+            VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints)
 
         return np.array(poses)
 
