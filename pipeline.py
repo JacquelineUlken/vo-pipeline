@@ -1,4 +1,5 @@
 from dataset import Dataset
+from config import Config
 import cv2
 import numpy as np
 from state import State
@@ -6,8 +7,9 @@ from tqdm import tqdm
 
 
 class Pipeline:
-    def __init__(self, dataset: Dataset):
+    def __init__(self, dataset: Dataset, config: Config):
         self.dataset = dataset
+        self.config = config
         self.camera_matrix = dataset.camera_matrix
         self.state = State.empty()  # State object as described in the project statement pdf
 
@@ -15,26 +17,29 @@ class Pipeline:
 
     def run(self):
         number_of_frames = len(self.dataset)
-        self.initialize(0, 2)
+        self.initialize()
         poses = []
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
-            if len(self.state.landmarks) < 100:
+            if len(self.state.landmarks) < self.config.min_landmarks:
                 self.check_new_landmarks = True
             current_pose = self.process_frame(i)
             poses.append(current_pose)
 
         return np.array(poses)
 
-    def initialize(self, frame_1_index, frame_2_index):
+    def initialize(self):
         """
         Extracts an initial set of 2D - 3D correspondences from the first frames of the sequence and bootstraps the initial camera poses and landmarks.
         """
         # Select two frames at the beginning of the dataset
-        frame_1 = self.dataset.get_frame(frame_1_index)
-        frame_2 = self.dataset.get_frame(frame_2_index)
+        frame_1 = self.dataset.get_frame(0)
+        frame_2 = self.dataset.get_frame(self.config.init_frame_2_index)
 
         # Establish keypoint correspondences between the two frames using KLT
-        keypoints_1 = cv2.goodFeaturesToTrack(frame_1, maxCorners=500, qualityLevel=0.01, minDistance=7)  # shape: (K, 1, 2)
+        keypoints_1 = cv2.goodFeaturesToTrack(frame_1,
+                                              maxCorners=self.config.init_max_corners,
+                                              qualityLevel=self.config.init_quality_level,
+                                              minDistance=self.config.init_min_distance)  # shape: (K, 1, 2)
         keypoints_2, untracked_filter, _ = cv2.calcOpticalFlowPyrLK(frame_1, frame_2, keypoints_1, None)  # shapes: (K, 1, 2) and (K, 2)
 
         # Remove keypoints that aren't tracked
@@ -120,9 +125,12 @@ class Pipeline:
                     self.state.remove_candidate_keypoints(candidates_to_be_removed)
 
         # Find new candidate keypoints
-        n = 500 - len(self.state.candidate_keypoints)
-        if n > 0:
-            new_candidate_keypoints = cv2.goodFeaturesToTrack(current_image, maxCorners=n, qualityLevel=0.01, minDistance=7).reshape(-1, 2)  # shape: (K, 2)
+        max_corners = self.config.desired_keypoints - len(self.state.candidate_keypoints)
+        if max_corners > 0:
+            new_candidate_keypoints = cv2.goodFeaturesToTrack(current_image,
+                                                              maxCorners=max_corners,
+                                                              qualityLevel=self.config.quality_level,
+                                                              minDistance=self.config.min_distance).reshape(-1, 2)  # shape: (K, 2)
             self.state.add_candidate_keypoints(new_candidate_keypoints, current_pose)
 
     def is_valid_triangulation(self, keypoint_1, keypoint_2, pose_1, pose_2):
@@ -153,14 +161,17 @@ class Pipeline:
         alpha = np.arccos(np.clip(cos_alpha, -1.0, 1.0))
 
         # Return True if angle exceeds the threshold
-        return alpha > 1/36 * np.pi
+        return alpha > self.config.threshold_triangulation_angle
 
     def get_pose_and_outliers(self, previous_keypoints, current_keypoints):
         """
         Estimate relative pose between the frames while using RANSAC to filter out outliers
         """
         essential_matrix, outlier_filter = cv2.findEssentialMat(current_keypoints, previous_keypoints,
-                                                                cameraMatrix=self.camera_matrix, method=cv2.RANSAC, prob=0.999, threshold=1.0)
+                                                                cameraMatrix=self.camera_matrix,
+                                                                method=cv2.RANSAC,
+                                                                prob=self.config.ransac_prob,
+                                                                threshold=self.config.error_threshold)
         _, rotation_matrix, translation_vector, _ = cv2.recoverPose(essential_matrix, current_keypoints, previous_keypoints, cameraMatrix=self.camera_matrix)
         pose = np.hstack((rotation_matrix, translation_vector))
 
