@@ -40,7 +40,7 @@ def VisualizeKeypoints(img, keypoints_1, keypoints_2, fig, axs, camera_pose):
 
     plt.tight_layout()
 
-    plt.pause(5.0)
+    plt.pause(0.1)
     # plt.show()
 
     return
