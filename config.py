@@ -2,6 +2,11 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
+    # BILATERAL FILTER
+    filter_diameter: int = 5
+    sigma_color: int = 75
+    sigma_space: int = 75
+
     # INITIALIZATION
     init_frame_2_index: int = 2  # Typical between 1 and 10
     init_max_corners: int = 400  # Typical between 100 and 1000
@@ -10,9 +15,9 @@ class Config:
 
     # CONTINUOUS OPERATION
     # When to check for new landmarks
-    min_landmarks: int = 400
+    min_landmarks: int = 300
     # Finding new candidate keypoints
-    desired_keypoints: int = 400  # Typical between 100 and 1000
+    desired_candidates: int = 600  # Typical between 100 and 1000
     quality_level: float = 0.01  # Typical between 0.01 and 0.1
     min_distance: int = 7  # Typical between 5 and 10
     # Triangulating new landmarks

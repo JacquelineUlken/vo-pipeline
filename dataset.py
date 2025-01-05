@@ -32,6 +32,8 @@ class Dataset:
         elif dataset_type == "parking":
             self._setup_parking()
 
+        self.dimensions = self.get_frame(0).shape
+
     def _setup_kitti(self):
         self.image_paths = self._get_image_paths(os.path.join(self.base_path, '05/image_0'))
         self.camera_matrix = np.array([[718.856, 0, 607.1928],
@@ -73,13 +75,17 @@ class Dataset:
         homogeneous_poses[:, :3, :] = raw_poses
         return homogeneous_poses
 
-    def get_frame(self, index):
+    def get_frame(self, index, color=False):
         """
         Loads a grayscale image at the specified index.
         """
         if index < 0 or index >= len(self):
             raise IndexError(f"Frame index {index} out of bounds.")
-        return cv2.imread(self.image_paths[index], cv2.IMREAD_GRAYSCALE)
+
+        if color:
+            return cv2.imread(self.image_paths[index], cv2.IMREAD_COLOR)
+        else:
+            return cv2.imread(self.image_paths[index], cv2.IMREAD_GRAYSCALE)
 
     def get_ground_truth_pose(self, index):
         """

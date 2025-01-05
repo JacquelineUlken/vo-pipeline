@@ -5,7 +5,8 @@ import numpy as np
 from state import State
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from visualize import VisualizeKeypoints
+from visualize import Visualization
+
 
 class Pipeline:
     def __init__(self, dataset: Dataset, config: Config):
@@ -20,34 +21,36 @@ class Pipeline:
     def run(self):
         number_of_frames = len(self.dataset)
         poses = []
-        number_of_landmarks = []
-        current_pose = self.initialize()
-        poses.append(current_pose)
-        number_of_landmarks.append(len(self.state.landmarks))
 
-        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        # Select two frames at the beginning of the dataset
+        frame_1 = self.apply_filter(self.dataset.get_frame(0))
+        frame_2 = self.apply_filter(self.dataset.get_frame(self.config.init_frame_2_index))
+        poses.append(self.initialize(frame_1, frame_2))
+
+        visualization = Visualization(self.dataset)
+        visualization.number_of_landmarks.append(len(self.state.landmarks))
+        visualization.number_of_candidates.append(0)
+
+        current_image = frame_1
 
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
+            previous_image = current_image
+            current_image = self.apply_filter(self.dataset.get_frame(i))
             if len(self.state.landmarks) < self.config.min_landmarks:
                 self.check_new_landmarks = True
-            previous_pose = current_pose.copy()
-            current_pose = self.process_frame(i, previous_pose)
+            current_pose = self.process_frame(i, previous_image, current_image)
             poses.append(current_pose)
-            number_of_landmarks.append(len(self.state.landmarks))
 
-            VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints, poses, self.state.landmarks, self.state.candidate_keypoints, i + 1)
+            visualization.update(i, self.state, np.array(poses))
 
             self.check_new_landmarks = False
 
         return np.array(poses)
 
-    def initialize(self):
+    def initialize(self,frame_1, frame_2):
         """
         Extracts an initial set of 2D - 3D correspondences from the first frames of the sequence and bootstraps the initial camera poses and landmarks.
         """
-        # Select two frames at the beginning of the dataset
-        frame_1 = self.dataset.get_frame(0)
-        frame_2 = self.dataset.get_frame(self.config.init_frame_2_index)
 
         # Establish keypoint correspondences between the two frames using KLT
         keypoints_1 = cv2.goodFeaturesToTrack(frame_1,
@@ -60,21 +63,11 @@ class Pipeline:
         keypoints_1 = keypoints_1[untracked_filter == 1]  # shape: (K, 2)
         keypoints_2 = keypoints_2[untracked_filter == 1]  # shape: (K, 2)
 
-        keypoints_filter_1 = []
-        keypoints_filter_2 = []
-        for j in range(keypoints_2.shape[0]):
-            if keypoints_2[j, 0] >= 0 and keypoints_2[j, 0] <= frame_2.shape[1] and keypoints_2[j, 1] >= 0 and keypoints_2[j, 1] <= frame_2.shape[0]:
-                keypoints_filter_2.append(keypoints_2[j, :])
-                keypoints_filter_1.append(keypoints_1[j, :])
-
-        keypoints_1 = np.array(keypoints_filter_1)
-        keypoints_2 = np.array(keypoints_filter_2)
+        keypoints_2, removed_filter = self.filter_keypoints_in_frame(keypoints_2, frame_2.shape)
+        keypoints_1 = np.expand_dims(keypoints_1, 1)[removed_filter == 1]
 
         # Get poses for frame 1 and frame 2
         pose_1 = np.eye(4)  # First pose is just the (4, 4) identity matrix
-
-        print(keypoints_1.shape)
-        print(keypoints_2.shape)
 
         essential_matrix, outlier_filter = cv2.findEssentialMat(keypoints_1, keypoints_2,
                                                                 cameraMatrix=self.camera_matrix,
@@ -101,16 +94,13 @@ class Pipeline:
 
         return pose_1
 
-    def process_frame(self, i, previous_pose):
+    def process_frame(self, i, previous_image, current_image):
         """
         Processes each frame, estimates the current pose of the camera using the existing set of landmarks and regularly triangulates new landmarks.
         """
-        previous_image = self.dataset.get_frame(i - 1)
-        current_image = self.dataset.get_frame(i)
 
         self.associate_keypoints_to_landmarks(previous_image, current_image)
         current_relative_pose = self.estimate_current_pose()
-        # current_pose = np.linalg.inv(current_relative_pose) @ previous_pose
         current_pose = np.linalg.inv(current_relative_pose)
 
         if self.use_ground_truth_for_triangulation:
@@ -175,30 +165,27 @@ class Pipeline:
                     pose_2 = current_pose
                     if self.is_valid_triangulation(keypoint_1, keypoint_2, pose_1, pose_2):
                         landmark = self.triangulate_landmarks(np.expand_dims(keypoint_1, axis=0), np.expand_dims(keypoint_2, axis=0), pose_1, pose_2).squeeze()
-                        new_keypoints.append(keypoint_2)
-                        new_landmarks.append(landmark)
-                        candidates_to_be_removed.append(i)
+
+                        if not self.landmark_is_behind_camera(landmark, pose_2):
+                            new_keypoints.append(keypoint_2)
+                            new_landmarks.append(landmark)
+                            candidates_to_be_removed.append(i)
+
                 if new_keypoints:
-                    new_landmarks = np.array(new_landmarks)
-                    self.state.add_keypoints(np.array(new_keypoints), new_landmarks)
+                    self.state.add_keypoints(np.array(new_keypoints), np.array(new_landmarks))
                     self.state.remove_candidate_keypoints(candidates_to_be_removed)
 
         # Find new candidate keypoints
-        max_corners = self.config.desired_keypoints - len(self.state.candidate_keypoints)
+        max_corners = self.config.desired_candidates - len(self.state.candidate_keypoints)
         if max_corners > 0:
             new_candidate_keypoints = cv2.goodFeaturesToTrack(current_image,
                                                               maxCorners=max_corners,
                                                               qualityLevel=self.config.quality_level,
                                                               minDistance=self.config.min_distance).reshape(-1, 2)  # shape: (K, 2)
 
-            keypoints_filter = []
-            for j in range(new_candidate_keypoints.shape[0]):
-                if 0 <= new_candidate_keypoints[j, 0] <= current_image.shape[1] and 0 <= new_candidate_keypoints[j, 1] <= current_image.shape[0]:
-                    keypoints_filter.append(new_candidate_keypoints[j, :])
+            new_candidate_keypoints, _ = self.filter_keypoints_in_frame(new_candidate_keypoints, current_image.shape)
 
-            keypoints_filter = np.array(keypoints_filter)
-
-            self.state.add_candidate_keypoints(keypoints_filter, current_pose)
+            self.state.add_candidate_keypoints(new_candidate_keypoints, current_pose)
 
     def is_valid_triangulation(self, keypoint_1, keypoint_2, pose_1, pose_2):
         """
@@ -240,3 +227,26 @@ class Pipeline:
         landmarks_hom = cv2.triangulatePoints(projection_matrix_1, projection_matrix_2, keypoints_1.T, keypoints_2.T)  # shape: (N, 4, 4)
         landmarks = landmarks_hom[:3] / landmarks_hom[3]
         return landmarks.T
+
+    @staticmethod
+    def landmark_is_behind_camera(landmark, pose):
+        landmark_hom = np.append(landmark, 1)
+        landmark_cam = np.linalg.inv(pose) @ landmark_hom
+
+        return landmark_cam[2] < 0
+
+    def apply_filter(self, image):
+        return cv2.bilateralFilter(image,
+                                   d=self.config.filter_diameter,
+                                   sigmaColor=self.config.sigma_color,
+                                   sigmaSpace=self.config.sigma_space)
+
+    @staticmethod
+    def filter_keypoints_in_frame(keypoints, frame_shape):
+        height, width = frame_shape[:2]
+        mask = (keypoints[:, 0] >= 0) & (keypoints[:, 0] <= width) & \
+               (keypoints[:, 1] >= 0) & (keypoints[:, 1] <= height)
+
+        filtered_keypoints = keypoints[mask]
+
+        return filtered_keypoints, mask.astype(np.uint8).reshape(-1, 1)
