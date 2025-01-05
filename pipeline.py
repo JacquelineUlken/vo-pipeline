@@ -15,7 +15,7 @@ class Pipeline:
         self.state = State.empty()  # State object as described in the project statement pdf
         self.check_new_landmarks = False
 
-        self.use_ground_truth_for_triangulation = True
+        self.use_ground_truth_for_triangulation = False
 
     def run(self):
         number_of_frames = len(self.dataset)
@@ -25,8 +25,7 @@ class Pipeline:
         poses.append(current_pose)
         number_of_landmarks.append(len(self.state.landmarks))
 
-        fig, axs = plt.subplots(1, 2)
-
+        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
             if len(self.state.landmarks) < self.config.min_landmarks:
@@ -38,6 +37,7 @@ class Pipeline:
 
             VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints, poses, self.state.landmarks, self.state.candidate_keypoints, i + 1)
 
+            self.check_new_landmarks = False
 
         return np.array(poses)
 
@@ -60,8 +60,21 @@ class Pipeline:
         keypoints_1 = keypoints_1[untracked_filter == 1]  # shape: (K, 2)
         keypoints_2 = keypoints_2[untracked_filter == 1]  # shape: (K, 2)
 
+        keypoints_filter_1 = []
+        keypoints_filter_2 = []
+        for j in range(keypoints_2.shape[0]):
+            if keypoints_2[j, 0] >= 0 and keypoints_2[j, 0] <= frame_2.shape[1] and keypoints_2[j, 1] >= 0 and keypoints_2[j, 1] <= frame_2.shape[0]:
+                keypoints_filter_2.append(keypoints_2[j, :])
+                keypoints_filter_1.append(keypoints_1[j, :])
+
+        keypoints_1 = np.array(keypoints_filter_1)
+        keypoints_2 = np.array(keypoints_filter_2)
+
         # Get poses for frame 1 and frame 2
         pose_1 = np.eye(4)  # First pose is just the (4, 4) identity matrix
+
+        print(keypoints_1.shape)
+        print(keypoints_2.shape)
 
         essential_matrix, outlier_filter = cv2.findEssentialMat(keypoints_1, keypoints_2,
                                                                 cameraMatrix=self.camera_matrix,
@@ -72,7 +85,8 @@ class Pipeline:
         relative_pose = np.eye(4)
         relative_pose[:3, :3] = rotation_matrix
         relative_pose[:3, 3] = translation_vector.ravel()
-        pose_2 = pose_1 @ np.linalg.inv(relative_pose)
+        # pose_2 = np.linalg.inv(relative_pose) @ pose_1
+        pose_2 = np.linalg.inv(relative_pose)
 
         # Remove outliers
         keypoints_1 = np.expand_dims(keypoints_1, axis=1)[outlier_filter == 1]  # shape: (K, 2)
@@ -96,10 +110,12 @@ class Pipeline:
 
         self.associate_keypoints_to_landmarks(previous_image, current_image)
         current_relative_pose = self.estimate_current_pose()
-        current_pose = previous_pose @ np.linalg.inv(current_relative_pose)
+        # current_pose = np.linalg.inv(current_relative_pose) @ previous_pose
+        current_pose = np.linalg.inv(current_relative_pose)
 
         if self.use_ground_truth_for_triangulation:
-            self.triangulate_new_landmarks(previous_image, current_image, self.dataset.ground_truth_poses[i])
+            ground_truth_pose = self.dataset.get_ground_truth_pose(i)
+            self.triangulate_new_landmarks(previous_image, current_image, ground_truth_pose)
         else:
             self.triangulate_new_landmarks(previous_image, current_image, current_pose)
 
@@ -174,7 +190,15 @@ class Pipeline:
                                                               maxCorners=max_corners,
                                                               qualityLevel=self.config.quality_level,
                                                               minDistance=self.config.min_distance).reshape(-1, 2)  # shape: (K, 2)
-            self.state.add_candidate_keypoints(new_candidate_keypoints, current_pose)
+
+            keypoints_filter = []
+            for j in range(new_candidate_keypoints.shape[0]):
+                if 0 <= new_candidate_keypoints[j, 0] <= current_image.shape[1] and 0 <= new_candidate_keypoints[j, 1] <= current_image.shape[0]:
+                    keypoints_filter.append(new_candidate_keypoints[j, :])
+
+            keypoints_filter = np.array(keypoints_filter)
+
+            self.state.add_candidate_keypoints(keypoints_filter, current_pose)
 
     def is_valid_triangulation(self, keypoint_1, keypoint_2, pose_1, pose_2):
         """
@@ -201,7 +225,7 @@ class Pipeline:
 
         # Calculate the angle between the two rays
         cos_alpha = np.dot(d1, d2)
-        alpha = np.arccos(np.clip(cos_alpha, -1.0, 1.0))
+        alpha = np.arccos(cos_alpha)
 
         # Return True if angle exceeds the threshold
         return alpha > self.config.threshold_triangulation_angle

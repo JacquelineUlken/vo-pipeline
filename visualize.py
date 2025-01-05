@@ -36,13 +36,13 @@ def VisualizeKeypoints(img, axs, camera_pose, keypoints, poses_list, landmarks, 
 
     flag = True
     for k in range(len(poses_list)):
-        axs[1].plot(poses_list[k][0, 3], poses_list[k][1, 3], 'bx', linewidth=1, label='Camera poses')
+        axs[1].plot(poses_list[k][0, 3], poses_list[k][2, 3], 'bx', linewidth=1, label='Camera poses')
         if flag:
             axs[1].legend(loc='upper right')
             flag = False
 
     axs[1].set_xlabel('x')
-    axs[1].set_ylabel('y (z)')
+    axs[1].set_ylabel('z')
     axs[1].set_title("Camera Poses and Landmarks")
 
     plt.tight_layout()

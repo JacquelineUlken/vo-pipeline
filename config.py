@@ -10,7 +10,7 @@ class Config:
 
     # CONTINUOUS OPERATION
     # When to check for new landmarks
-    min_landmarks: int = 300
+    min_landmarks: int = 400
     # Finding new candidate keypoints
     desired_keypoints: int = 400  # Typical between 100 and 1000
     quality_level: float = 0.01  # Typical between 0.01 and 0.1
