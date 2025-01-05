@@ -26,7 +26,7 @@ class Pipeline:
         current_pose = self.initialize()
         poses.append(current_pose)
 
-        fig, axs = plt.subplots(2, 2)
+        fig, axs = plt.subplots(1, 2)
 
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
             if len(self.state.landmarks) < self.config.min_landmarks:
@@ -35,7 +35,7 @@ class Pipeline:
             current_pose = self.process_frame(i, previous_pose)
             poses.append(current_pose)
 
-            VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints, poses, self.state.landmarks)
+            VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints, poses, self.state.landmarks, self.state.candidate_keypoints, i + 1)
 
         return np.array(poses)
 
