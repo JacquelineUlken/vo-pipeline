@@ -23,8 +23,8 @@ class Pipeline:
         poses = []
 
         # Select two frames at the beginning of the dataset
-        frame_1 = self.apply_filter(self.dataset.get_frame(0))
-        frame_2 = self.apply_filter(self.dataset.get_frame(self.config.init_frame_2_index))
+        frame_1 = self.dataset.get_frame(0)
+        frame_2 = self.dataset.get_frame(self.config.init_frame_2_index)
         poses.append(self.initialize(frame_1, frame_2))
 
         visualization = Visualization(self.dataset)
@@ -35,7 +35,7 @@ class Pipeline:
 
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
             previous_image = current_image
-            current_image = self.apply_filter(self.dataset.get_frame(i))
+            current_image = self.dataset.get_frame(i)
             if len(self.state.landmarks) < self.config.min_landmarks:
                 self.check_new_landmarks = True
             current_pose = self.process_frame(i, previous_image, current_image)
@@ -234,12 +234,6 @@ class Pipeline:
         landmark_cam = np.linalg.inv(pose) @ landmark_hom
 
         return landmark_cam[2] < 0
-
-    def apply_filter(self, image):
-        return cv2.bilateralFilter(image,
-                                   d=self.config.filter_diameter,
-                                   sigmaColor=self.config.sigma_color,
-                                   sigmaSpace=self.config.sigma_space)
 
     @staticmethod
     def filter_keypoints_in_frame(keypoints, frame_shape):

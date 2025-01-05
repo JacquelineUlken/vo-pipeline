@@ -2,11 +2,6 @@ from dataclasses import dataclass
 
 @dataclass
 class Config:
-    # BILATERAL FILTER
-    filter_diameter: int = 5
-    sigma_color: int = 75
-    sigma_space: int = 75
-
     # INITIALIZATION
     init_frame_2_index: int = 2  # Typical between 1 and 10
     init_max_corners: int = 400  # Typical between 100 and 1000
