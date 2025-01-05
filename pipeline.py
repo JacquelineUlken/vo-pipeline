@@ -7,6 +7,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from visualize import VisualizeKeypoints
 
+
 class Pipeline:
     def __init__(self, dataset: Dataset, config: Config):
         self.dataset = dataset
@@ -30,7 +31,8 @@ class Pipeline:
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
             if len(self.state.landmarks) < self.config.min_landmarks:
                 self.check_new_landmarks = True
-            current_pose = self.process_frame(i)
+            previous_pose = current_pose.copy()
+            current_pose = self.process_frame(i, previous_pose)
             poses.append(current_pose)
 
             VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints)
@@ -58,7 +60,16 @@ class Pipeline:
 
         # Get poses for frame 1 and frame 2
         pose_1 = np.eye(4)  # First pose is just the (4, 4) identity matrix
-        pose_2, outlier_filter = self.get_pose_and_outliers(keypoints_1, keypoints_2)
+
+        essential_matrix, outlier_filter = cv2.findEssentialMat(keypoints_1, keypoints_2,
+                                                                cameraMatrix=self.camera_matrix,
+                                                                method=cv2.RANSAC,
+                                                                prob=self.config.ransac_prob,
+                                                                threshold=self.config.error_threshold)
+        _, rotation_matrix, translation_vector, _ = cv2.recoverPose(essential_matrix, keypoints_1, keypoints_2, cameraMatrix=self.camera_matrix, mask=outlier_filter)
+        pose_2 = np.eye(4)
+        pose_2[:3, :3] = rotation_matrix
+        pose_2[:3, 3] = translation_vector.ravel()
 
         # Remove outliers
         keypoints_1 = np.expand_dims(keypoints_1, axis=1)[outlier_filter == 1]  # shape: (K, 2)
@@ -73,15 +84,16 @@ class Pipeline:
 
         return pose_1
 
-    def process_frame(self, i):
+    def process_frame(self, i, previous_pose):
         """
         Processes each frame, estimates the current pose of the camera using the existing set of landmarks and regularly triangulates new landmarks.
         """
         previous_image = self.dataset.get_frame(i - 1)
         current_image = self.dataset.get_frame(i)
 
-        previous_keypoints = self.associate_keypoints_to_landmarks(previous_image, current_image)
-        current_pose = self.estimate_current_pose(previous_keypoints)
+        self.associate_keypoints_to_landmarks(previous_image, current_image)
+        current_relative_pose = self.estimate_current_pose()
+        current_pose = previous_pose @ np.linalg.inv(current_relative_pose)
         self.triangulate_new_landmarks(previous_image, current_image, current_pose)
 
         return current_pose
@@ -91,20 +103,30 @@ class Pipeline:
         previous_keypoints = self.state.keypoints.copy()
 
         # Establish keypoint correspondences between the two frames using KLT
-        current_keypoints, untracked_filter, _ = cv2.calcOpticalFlowPyrLK(previous_image, current_image, self.state.keypoints, None)
+        current_keypoints, untracked_filter, _ = cv2.calcOpticalFlowPyrLK(previous_image, current_image, previous_keypoints, None)
 
         # Update state with new keypoints
         self.state.keypoints = current_keypoints
 
         # Remove keypoints and landmarks that aren't tracked
-        previous_keypoints = np.expand_dims(previous_keypoints, axis=1)[untracked_filter == 1]
         self.state.filter_keypoints(untracked_filter)
 
-        return previous_keypoints
+    def estimate_current_pose(self):
+        # Save current keypoints
+        current_keypoints = self.state.keypoints.copy()
+        landmarks = self.state.landmarks.copy()
 
-    def estimate_current_pose(self, previous_keypoints):
-        # Get the current pose
-        current_pose, outlier_filter = self.get_pose_and_outliers(previous_keypoints, self.state.keypoints)
+        # Use PnP with RANSAC
+        _, rvec, tvec, inliers = cv2.solvePnPRansac(landmarks, current_keypoints, self.camera_matrix, distCoeffs=None)
+        outlier_filter = np.zeros(len(current_keypoints), dtype=bool)
+        outlier_filter[inliers.flatten()] = True
+        outlier_filter = outlier_filter.reshape(-1, 1)
+        R, _ = cv2.Rodrigues(rvec)
+
+        # Build 4x4 transformation matrix
+        current_pose = np.eye(4)
+        current_pose[:3, :3] = R
+        current_pose[:3, 3] = tvec.ravel()
 
         # Remove outliers
         self.state.filter_keypoints(outlier_filter)
@@ -175,22 +197,6 @@ class Pipeline:
         # Return True if angle exceeds the threshold
         return alpha > self.config.threshold_triangulation_angle
 
-    def get_pose_and_outliers(self, previous_keypoints, current_keypoints):
-        """
-        Estimate relative pose between the frames while using RANSAC to filter out outliers
-        """
-        essential_matrix, outlier_filter = cv2.findEssentialMat(current_keypoints, previous_keypoints,
-                                                                cameraMatrix=self.camera_matrix,
-                                                                method=cv2.RANSAC,
-                                                                prob=self.config.ransac_prob,
-                                                                threshold=self.config.error_threshold)
-        _, rotation_matrix, translation_vector, _ = cv2.recoverPose(essential_matrix, current_keypoints, previous_keypoints, cameraMatrix=self.camera_matrix)
-        pose = np.eye(4)
-        pose[:3, :3] = rotation_matrix
-        pose[:3, 3] = translation_vector.ravel()
-
-        return pose, outlier_filter
-
     def triangulate_landmarks(self, keypoints_1, keypoints_2, pose_1, pose_2):
         """
         Triangulate a point cloud of 3D landmarks
@@ -198,6 +204,6 @@ class Pipeline:
         projection_matrix_1 = self.camera_matrix @ pose_1[:3, :]
         projection_matrix_2 = self.camera_matrix @ pose_2[:3, :]
 
-        landmarks_hom = cv2.triangulatePoints(projection_matrix_1, projection_matrix_2, keypoints_1.T, keypoints_2.T)
+        landmarks_hom = cv2.triangulatePoints(projection_matrix_1, projection_matrix_2, keypoints_1.T, keypoints_2.T)  # shape: (N, 4, 4)
         landmarks = landmarks_hom[:3] / landmarks_hom[3]
         return landmarks.T
