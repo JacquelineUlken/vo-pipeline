@@ -4,7 +4,8 @@ import cv2
 import numpy as np
 from state import State
 from tqdm import tqdm
-
+import matplotlib.pyplot as plt
+from visualize import VisualizeKeypoints
 
 class Pipeline:
     def __init__(self, dataset: Dataset, config: Config):
@@ -14,17 +15,25 @@ class Pipeline:
         self.state = State.empty()  # State object as described in the project statement pdf
 
         self.check_new_landmarks = False
+        self.state = State.empty()  # State object as described in the project statement pdf
+
+        self.check_new_landmarks = False
 
     def run(self):
         number_of_frames = len(self.dataset)
         poses = []
         current_pose = self.initialize()
         poses.append(current_pose)
+
+        fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
         for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
             if len(self.state.landmarks) < self.config.min_landmarks:
                 self.check_new_landmarks = True
             current_pose = self.process_frame(i)
             poses.append(current_pose)
+
+            VisualizeKeypoints(self.dataset.get_frame(i), axs, current_pose, self.state.keypoints)
 
         return np.array(poses)
 
