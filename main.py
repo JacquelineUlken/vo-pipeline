@@ -1,3 +1,4 @@
+import argparse
 from config import Config
 from dataset import Dataset
 from pipeline import Pipeline
@@ -5,7 +6,11 @@ from pipeline import Pipeline
 DATA_FOLDER = "data"
 
 if __name__ == "__main__":
-    dataset_to_use = "parking"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, choices=["parking", "kitti", "malaga"], help="Which dataset to use", default="malaga")
+    args = parser.parse_args()
+
+    dataset_to_use = args.dataset
 
     if dataset_to_use == "kitti":
         folder = f"{DATA_FOLDER}/kitti"
@@ -34,4 +39,4 @@ if __name__ == "__main__":
     pipeline = Pipeline(dataset, config)
     poses = pipeline.run()
 
-    print(f"Finished VO Pipeline, got {len(poses)} poses, each in the form of a {poses.shape[1]} x {poses.shape[2]} matrix.")
+    print(f"Finished VO Pipeline")
