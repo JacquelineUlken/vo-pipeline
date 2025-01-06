@@ -60,11 +60,11 @@ class Dataset:
     def _get_image_paths(images_path, malaga=False):
         """
         Retrieve sorted image paths.
-        For Malaga, skip the first two entries which are '.' and '..' and use only the left images (odd indices)
+        For Malaga use only the left images (odd indices)
         """
         image_files = sorted(os.listdir(images_path))
         if malaga:
-            image_files = image_files[2::2]
+            image_files = image_files[::2]
 
         return [os.path.join(images_path, img) for img in image_files if img.endswith('.png') or img.endswith('.jpg')]
 
