@@ -17,7 +17,7 @@ class Config:
     quality_level: float = 0.01  # Typical between 0.01 and 0.1
     min_distance: int = 7  # Typical between 5 and 10
     # Triangulating new landmarks
-    use_simple_triangulation_validation: bool = False
+    use_simple_triangulation_validation: bool = True
     threshold_triangulation_angle: float = 1 / 36 * 3.14  # Typical between 1/36 pi and 5/36 pi
     threshold_pixel_distance: float = 5
     # ransac

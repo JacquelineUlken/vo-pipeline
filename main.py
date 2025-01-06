@@ -9,13 +9,11 @@ DATA_FOLDER = "data"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset", type=str, choices=["parking", "kitti", "malaga"], help="Which dataset to use", default="malaga")
+    parser.add_argument("--dataset", type=str, choices=["parking", "kitti", "malaga"], help="Which dataset to use", default="parking")
     args = parser.parse_args()
 
     dataset_to_use = args.dataset
     config = Config()
-
-    config.use_simple_triangulation_validation = True
 
     if dataset_to_use == "kitti":
         folder = f"{DATA_FOLDER}/kitti"
