@@ -44,17 +44,34 @@ conda activate vo-pipeline
 ---
 
 ## How to run
-1. Extract the dataset (e.g., kitti05.zip) into the data folder:
+1. Extract the dataset (e.g., kitti05.zip) into the data folder. The folder structure should look like this:
 ```kotlin
 data/
 └── kitti/
     ├── 05
     ├── poses
 ```
-2. Run `main.py`:
+2. Use the following command to execute the pipeline, specifying the dataset to use:
+```bash
+python main.py --dataset name
+```
+- `--dataset` – Choose between three datasets:
+  - `parking` – Parking lot dataset
+  - `kitti` – KITTI odometry dataset
+  - `malaga` – Malaga urban dataset
+
+Example for running with the KITTI dataset:
+```bash
+python main.py --dataset kitti
+```
+
+If no dataset is specified, the **Parking** dataset will be used by default:
 ```bash
 python main.py
 ```
+
+3. Poses are saved in the `final_poses/` directory as `poses_[dataset].txt`.
+Visualization videos of the results are saved in the `videos/` directory, e.g., `videos/kitti.mp4`.
 
 ---
 
