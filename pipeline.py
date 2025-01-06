@@ -56,7 +56,7 @@ class Pipeline:
 
         visualization.save_video()
 
-        return np.array(poses)
+        return poses
 
     def initialize(self, frame_1, frame_2):
         """
@@ -172,8 +172,11 @@ class Pipeline:
                     pose_1 = self.state.first_observation_poses[i]
                     keypoint_2 = self.state.candidates[i]
                     pose_2 = current_pose
-                    # if self.is_valid_triangulation(keypoint_1, keypoint_2, pose_1, pose_2):
-                    if self.simple_is_valid_triangulation(keypoint_1, keypoint_2):
+                    if self.config.use_simple_triangulation_validation:
+                        valid = self.simple_is_valid_triangulation(keypoint_1, keypoint_2)
+                    else:
+                        valid = self.is_valid_triangulation(keypoint_1, keypoint_2, pose_1, pose_2)
+                    if valid:
                         landmark = self.triangulate_landmarks(np.expand_dims(keypoint_1, axis=0), np.expand_dims(keypoint_2, axis=0), pose_1, pose_2).squeeze()
 
                         if not self.landmark_is_behind_camera(landmark, pose_2):
