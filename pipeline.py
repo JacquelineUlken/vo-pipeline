@@ -8,9 +8,10 @@ from visualize import Visualization
 
 
 class Pipeline:
-    def __init__(self, dataset: Dataset, config: Config):
+    def __init__(self, dataset: Dataset, config: Config, visualization: Visualization):
         self.dataset = dataset
         self.config = config
+        self.visualization = visualization
         self.camera_matrix = dataset.camera_matrix
         self.state = State.empty()  # State object as described in the project statement pdf
         self.use_ground_truth_for_triangulation = False  # For debugging purposes
@@ -28,33 +29,24 @@ class Pipeline:
         current_pose = self.initialize(frame_1, frame_2)
         poses.append(current_pose)
 
-        visualization = Visualization(self.dataset)
-        visualization.number_of_landmarks.append(len(self.state.landmarks))
-        visualization.number_of_candidates.append(0)
+        self.visualization.number_of_landmarks.append(len(self.state.landmarks))
+        self.visualization.number_of_candidates.append(0)
 
         current_image = frame_1
 
-        try:
-            for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
-                previous_image = current_image
-                current_image = self.dataset.get_frame(i)
+        for i in tqdm(range(1, number_of_frames), desc=f"Processing {number_of_frames - 1} frames."):
+            previous_image = current_image
+            current_image = self.dataset.get_frame(i)
 
-                if len(self.state.landmarks) < self.config.min_landmarks:
-                    self.check_new_landmarks = True
+            if len(self.state.landmarks) < self.config.min_landmarks:
+                self.check_new_landmarks = True
 
-                current_pose = self.process_frame(i, previous_image, current_image)
-                poses.append(current_pose)
+            current_pose = self.process_frame(i, previous_image, current_image)
+            poses.append(current_pose)
 
-                visualization.update(i, self.state, np.array(poses))
+            self.visualization.update(i, self.state, np.array(poses))
 
-                self.check_new_landmarks = False
-
-        except Exception as e:
-            # Save the video even if something went wrong
-            visualization.save_video()
-            raise e
-
-        visualization.save_video()
+            self.check_new_landmarks = False
 
         return poses
 

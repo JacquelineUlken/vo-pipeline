@@ -1,11 +1,9 @@
 import argparse
-
 import numpy as np
-from scipy._lib.array_api_compat import torch
-
 from config import Config
 from dataset import Dataset
 from pipeline import Pipeline
+from visualize import Visualization
 
 DATA_FOLDER = "data"
 
@@ -37,10 +35,13 @@ if __name__ == "__main__":
 
     print(f"Starting VO Pipeline with {dataset_to_use} dataset.")
 
-    pipeline = Pipeline(dataset, config)
+    visualization = Visualization(dataset)
+    pipeline = Pipeline(dataset, config, visualization)
     poses = pipeline.run()
 
     flattened_poses = np.array([pose.flatten()[:12] for pose in poses])
-    np.savetxt(f"poses_{dataset_to_use}.txt", flattened_poses, delimiter=" ", fmt="%.6f")
+    np.savetxt(f"final_poses/poses_{dataset_to_use}.txt", flattened_poses, delimiter=" ", fmt="%.6f")
+
+    visualization.save_video(f"videos/{dataset_to_use}.mp4")
 
     print(f"Finished VO Pipeline")

@@ -69,16 +69,27 @@ class Visualization:
     def plot_landmark_counts(self):
         ax3 = self.axs[1, 0]
         ax3.cla()
-        ax3.set_title("Number of landmarks and candidate keypoints")
+        ax3.set_title("Average number of landmarks and candidates")
         ax3.set_xlabel("Frame")
-        ax3.set_ylabel("Number of points")
+        ax3.set_ylabel("Average number of points")
         ax3.grid(True)
 
         ax3.set_xlim(0, len(self.dataset))
-        ax3.set_ylim(0, 600)
+        ax3.set_ylim(0, 700)
 
-        ax3.plot(self.number_of_landmarks, color="red", linewidth=1, alpha=0.8, label="Number of landmarks")
-        ax3.plot(self.number_of_candidates, color="green", linewidth=1, alpha=0.8, label="Number of candidates")
+        # Compute moving average for the last 20 frames
+        window_size = 20
+        avg_landmarks = [
+            sum(self.number_of_landmarks[max(0, i - window_size):i]) / min(i, window_size)
+            for i in range(1, len(self.number_of_landmarks) + 1)
+        ]
+        avg_candidates = [
+            sum(self.number_of_candidates[max(0, i - window_size):i]) / min(i, window_size)
+            for i in range(1, len(self.number_of_candidates) + 1)
+        ]
+
+        ax3.plot(avg_landmarks, color="red", linewidth=1, alpha=0.8, label="Avg landmarks")
+        ax3.plot(avg_candidates, color="green", linewidth=1, alpha=0.8, label="Avg candidates")
         ax3.legend(loc="lower right")
 
     def plot_global_trajectory(self, poses):
